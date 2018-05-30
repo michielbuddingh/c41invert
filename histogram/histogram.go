@@ -36,7 +36,7 @@ type Channels struct {
 
 type Mapping func (color.RGBA64) (out color.RGBA64)
 
-func (c Channels) Sigmoid() Mapping  {
+func (c Channels) Sigmoid(contrast float64) Mapping  {
 	rmin, rmax := float64(c.Red.Min()), float64(c.Red.Max())
 	gmin, gmax := float64(c.Green.Min()), float64(c.Green.Max())
 	bmin, bmax := float64(c.Blue.Min()), float64(c.Blue.Max())
@@ -50,9 +50,9 @@ func (c Channels) Sigmoid() Mapping  {
 		valg := (float64(in.G) - gmin) - (gdiff / 2)
 		valb := (float64(in.B) - bmin) - (bdiff / 2)
 
-		valr *= (math.Pi / (-rdiff / 1))
-		valg *= (math.Pi / (-gdiff / 1))
-		valb *= (math.Pi / (-bdiff / 1))
+		valr *= (math.Pi / (-rdiff / contrast))
+		valg *= (math.Pi / (-gdiff / contrast))
+		valb *= (math.Pi / (-bdiff / contrast))
 		
 
 		out.R = uint16((math.Erf(valr) + 1) * 32768)

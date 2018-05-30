@@ -16,6 +16,7 @@ var options struct {
 	Histogram string
 	Input string
 	Output string
+	Contrast float64
 } 
 
 func readHistogram() histogram.Channels {
@@ -58,14 +59,15 @@ func main() {
 	flag.StringVar(&options.Histogram, "histogram", "", "")
 	flag.StringVar(&options.Input, "input", "", "")
 	flag.StringVar(&options.Output, "output", "", "")
-
+	flag.Float64Var(&options.Contrast, "contrast", 1.0, "tweak contrast, 1.0 = normal")
+	
 	flag.Parse()
 	
 	channels := readHistogram()
 
 	picture := loadImage(options.Input)
 
-	colormap := channels.Sigmoid()
+	colormap := channels.Sigmoid(options.Contrast)
 
 	bounds := picture.Bounds()
 	copy := image.NewRGBA64(bounds)
