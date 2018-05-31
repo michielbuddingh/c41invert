@@ -67,7 +67,8 @@ func main() {
 
 	picture := loadImage(options.Input)
 
-	colormap := channels.Sigmoid(options.Contrast)
+	//	colormap := channels.Sigmoid(options.Contrast)
+	colormap := channels.Linear()
 
 	bounds := picture.Bounds()
 	copy := image.NewRGBA64(bounds)

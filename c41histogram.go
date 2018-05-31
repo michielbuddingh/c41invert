@@ -37,21 +37,22 @@ func sampleCentre(picture image.Image) *image.Rectangle {
 	return &sampleArea
 }
 
-func histograms(picture image.Image, sampleArea *image.Rectangle) (*histogram.Histogram, *histogram.Histogram, *histogram.Histogram) {
+func histograms(picture image.Image, sampleArea *image.Rectangle) (*histogram.Channels) {
 
-	red := new(histogram.Histogram)
-	green := new(histogram.Histogram)
-	blue := new(histogram.Histogram)
+	channels := new(histogram.Channels)
 
 	for x := sampleArea.Min.X; x < sampleArea.Max.X; x++ {
 		for y := sampleArea.Min.Y; y < sampleArea.Max.Y; y++ {
 			r, g, b, _ := picture.At(x, y).RGBA()
-			red[r] += 1
-			green[g] += 1
-			blue[b] += 1
+			channels.Red.Values[r] += 1
+			channels.Green.Values[g] += 1
+			channels.Blue.Values[b] += 1
+			channels.Red.Cumulative += 1
+			channels.Green.Cumulative += 1
+			channels.Blue.Cumulative += 1
 		}
 	}
-	return red, green, blue
+	return channels
 }
 
 func main() {
@@ -59,10 +60,10 @@ func main() {
 	for i := 1; i < len(os.Args); i++ {
 		picture := load(os.Args[i])
 		sampleArea := sampleCentre(picture)
-		r, g, b := histograms(picture, sampleArea)
-		summary.Red.Merge(r)
-		summary.Green.Merge(g)
-		summary.Blue.Merge(b)
+		sampled := histograms(picture, sampleArea)
+		summary.Red.Merge(&sampled.Red)
+		summary.Green.Merge(&sampled.Green)
+		summary.Blue.Merge(&sampled.Blue)
 	}
 
 	b, merr := json.Marshal(summary)
