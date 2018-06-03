@@ -6,6 +6,7 @@ import "image/png"
 import "log"
 import "encoding/json"
 import "histogram"
+import "image/color"
 
 func load(filename string) (image.Image) {
 	f, oerr := os.Open(filename)
@@ -27,7 +28,7 @@ func sampleCentre(picture image.Image) *image.Rectangle {
 
 	width := bounds.Max.X - bounds.Min.X
 	height := bounds.Max.Y - bounds.Min.Y
-	
+
 	sampleArea := image.Rectangle{
 		image.Point{bounds.Min.X + int(float64(width) * 0.1),
 			bounds.Min.Y + int(float64(height) * 0.1)},
@@ -43,7 +44,7 @@ func histograms(picture image.Image, sampleArea *image.Rectangle) (*histogram.Ch
 
 	for x := sampleArea.Min.X; x < sampleArea.Max.X; x++ {
 		for y := sampleArea.Min.Y; y < sampleArea.Max.Y; y++ {
-			r, g, b, _ := picture.At(x, y).RGBA()
+			r, g, b, _ := color.RGBAModel.Convert(picture.At(x, y)).RGBA()
 			channels.Red.Values[r] += 1
 			channels.Green.Values[g] += 1
 			channels.Blue.Values[b] += 1

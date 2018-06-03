@@ -17,7 +17,7 @@ var options struct {
 	Input string
 	Output string
 	Contrast float64
-} 
+}
 
 func readHistogram() histogram.Channels {
 	var buf bytes.Buffer
@@ -29,7 +29,7 @@ func readHistogram() histogram.Channels {
 	io.Copy(&buf, f)
 
 	var channels histogram.Channels
-	
+
 	jerr := json.Unmarshal(buf.Bytes(), &channels)
 
 	if jerr != nil {
@@ -60,22 +60,22 @@ func main() {
 	flag.StringVar(&options.Input, "input", "", "")
 	flag.StringVar(&options.Output, "output", "", "")
 	flag.Float64Var(&options.Contrast, "contrast", 1.0, "tweak contrast, 1.0 = normal")
-	
+
 	flag.Parse()
-	
+
 	channels := readHistogram()
 
 	picture := loadImage(options.Input)
 
-	//	colormap := channels.Sigmoid(options.Contrast)
-	colormap := channels.Linear()
+	colormap := channels.Sigmoid(options.Contrast)
+	//colormap := channels.Linear()
 
 	bounds := picture.Bounds()
 	copy := image.NewRGBA64(bounds)
-	
+
 	for x := bounds.Min.X; x < bounds.Max.X; x++ {
 		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-			in := picture.At(x, y)
+			in := color.RGBA64Model.Convert(picture.At(x, y))
 			out := colormap(in.(color.RGBA64))
 			copy.Set(x, y, out)
 		}
