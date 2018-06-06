@@ -1,130 +1,143 @@
 package main
 
 import "os"
+import "log"
+import "context"
+import "flag"
 import "image"
-import "image/png"
+import _ "image/png"
 import "image/jpeg"
 import "image/color"
-import "log"
-import "math"
+import "github.com/google/subcommands"
 
-func load(filename string) (image.Image) {
+func load(filename string) (image.Image, error) {
 	f, oerr := os.Open(filename)
 	if oerr != nil {
-		log.Fatal(oerr)
+		return nil, oerr
 	}
 	defer f.Close()
 
-	p, derr := png.Decode(f)
+	p, _, derr := image.Decode(f)
 	if derr != nil {
-		log.Fatal(derr)
+		return nil, derr
 	}
 
-	return p
-}
-
-type histogram [65536]int32
-
-func (h histogram) min() uint16 {
-	for i := 0; i < len(h); i++ {
-		if h[i] > 0 {
-			log.Printf("min %d", i)
-			return uint16(i)
-		}
-	}
-	return 0
-}
-
-func (h histogram) max() uint16 {
-	for i := len(h) - 1; i >= 0; i-- {
-		if h[i] > 0 {
-			log.Printf("max %d", i)
-			return uint16(i)
-		}
-	}
-	return 65535
-}
-
-func mapping(red, green, blue *histogram) (func (color.RGBA64) (out color.RGBA64))  {
-	rmin, rmax := float64(red.min()), float64(red.max())
-	gmin, gmax := float64(green.min()), float64(green.max())
-	bmin, bmax := float64(blue.min()), float64(blue.max())
-
-	rdiff := float64(rmax - rmin)
-	gdiff := float64(gmax - gmin)
-	bdiff := float64(bmax - bmin)
-
-	return func (in color.RGBA64) (out color.RGBA64) {
-		valr := (float64(in.R) - rmin) - (rdiff / 2)
-		valg := (float64(in.G) - gmin) - (gdiff / 2)
-		valb := (float64(in.B) - bmin) - (bdiff / 2)
-
-		valr *= (math.Pi / (-rdiff / 1))
-		valg *= (math.Pi / (-gdiff / 1))
-		valb *= (math.Pi / (-bdiff / 1))
-		
-
-		out.R = uint16((math.Erf(valr) + 1) * 32768)
-		out.G = uint16((math.Erf(valg) + 1) * 32768)
-		out.B = uint16((math.Erf(valb) + 1) * 32768)
-
-//		log.Printf("%d - %f, %d, %f, %f\n", in.R, rmax, out.R, valr, rdiff)
-		out.A = in.A
-		return out
-	}
+	return p, nil
 }
 
 
-func histograms(picture image.Image, sampleArea image.Rectangle) (*histogram, *histogram, *histogram) {
-
-	red := new(histogram)
-	green := new(histogram)
-	blue := new(histogram)
-
+func samplePalette(picture image.Image, sampleArea image.Rectangle) (* Palette) {
+	var palette Palette
 	for x := sampleArea.Min.X; x < sampleArea.Max.X; x++ {
 		for y := sampleArea.Min.Y; y < sampleArea.Max.Y; y++ {
-			r, g, b, _ := picture.At(x, y).RGBA()
-			red[r] += 1
-			green[g] += 1
-			blue[b] += 1
+			palette.Add(color.RGBA64Model.Convert(picture.At(x, y)).(color.RGBA64))
 		}
 	}
-	return red, green, blue
+	return &palette
 }
 
+type convertCmd struct {
+	infile string
+	outfile string
+	sampleFraction float64
+	lowlights, highlights float64
+	linear bool
+}
 
-func main() {
-	if len(os.Args) == 1 {
-		log.Fatal("Need a path to an image file")
+func (*convertCmd) Name() string {
+	return "convert"
+}
+
+func (*convertCmd) Synopsis() string {
+	return "Invert input image, normalize colors and output a file"
+}
+
+func (*convertCmd) Usage() string {
+	return ""
+}
+
+func (c *convertCmd) SetFlags(f *flag.FlagSet) {
+	f.StringVar(&c.infile, "i", "", "Input file")
+	f.StringVar(&c.outfile, "o", "", "Output file")
+	f.Float64Var(&c.sampleFraction,
+		"sample_fraction", 0.8,
+		"Sample palette from a fraction crop of the center, 0 < fraction < 1 (default 0.8)")
+	f.Float64Var(&c.lowlights,
+		"lowlights", 0.1,
+		"Shadows start here, lower values save more shadows")
+	f.Float64Var(&c.highlights,
+		"highlights", 0.9,
+		"Highlights start here, lower values saves more highlights")
+	f.BoolVar(&c.linear,
+		"linear", false,
+		"Use linear mapping instead of sigmoid function")
+}
+
+func (c *convertCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+	if c.infile == "" {
+		log.Fatal("Must specify input file")
+	}
+	if c.outfile == "" {
+		log.Fatal("Must specify output file")
+	}
+	
+	picture, load_err := load(c.infile)
+
+	if load_err != nil {
+		log.Fatalf("Could not load input file `%s`: %v",
+			c.infile,
+			load_err)
 	}
 
-	picture := load(os.Args[1])
-	bounds := picture.Bounds()
+	sampleArea := sampleBounds(c.sampleFraction, picture)
+	palette := samplePalette(picture, sampleArea)
 
+	t := Transformation{
+		Range{Low : palette.Red.Percentile(c.lowlights), High: palette.Red.Percentile(c.highlights)},
+		Range{Low : palette.Green.Percentile(c.lowlights), High: palette.Green.Percentile(c.highlights)},
+		Range{Low : palette.Blue.Percentile(c.lowlights), High: palette.Blue.Percentile(c.highlights)},
+		c.lowlights - c.highlights,
+	}
+
+	mapping := t.Sigmoid()
+	if c.linear {
+		mapping = t.Linear()
+	}
+	
+	copy := mapping.Apply(picture)
+
+	of, ferr := os.Create(c.outfile)
+	if ferr != nil {
+		log.Fatal(ferr)
+	}
+	defer of.Close()
+	jpeg.Encode(of, copy, &jpeg.Options{Quality:95})
+		
+	return subcommands.ExitSuccess
+}
+
+// sampleBounds gets a bounding box for a center fraction of the image, based
+// on parameter fraction
+func sampleBounds(fraction float64, picture image.Image) image.Rectangle {
+	bounds := picture.Bounds()
 	width := bounds.Max.X - bounds.Min.X
 	height := bounds.Max.Y - bounds.Min.Y
-	log.Printf("W x H : %d x %d",
-		width,
-		height)
 
+	border := (1 - fraction) / 2
+	
 	sampleArea := image.Rectangle{
-		image.Point{bounds.Min.X + int(float64(width) * 0.1),
-			bounds.Min.Y + int(float64(height) * 0.1)},
-		image.Point{bounds.Max.X - int(float64(width) * 0.1),
-			bounds.Max.Y - int(float64(height) * 0.1)}}
+		image.Point{bounds.Min.X + int(float64(width) * border),
+			bounds.Min.Y + int(float64(height) * border)},
+		image.Point{bounds.Max.X - int(float64(width) * border),
+			bounds.Max.Y - int(float64(height) * border)}}
+	
+	return sampleArea
+}
 
-	colormap := mapping(histograms(picture, sampleArea))
+func main() {
+	subcommands.Register(&convertCmd{}, "")
 
-	copy := image.NewRGBA64(bounds)
-
-	for x := bounds.Min.X; x < bounds.Max.X; x++ {
-		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-			in := picture.At(x, y)
-			out := colormap(in.(color.RGBA64))
-			copy.Set(x, y, out)
-		}
-	}
-
-	jpeg.Encode(os.Stdout, copy, &jpeg.Options{Quality:95})
-
+	flag.Parse()
+	ctx := context.Background()
+	os.Exit(int(subcommands.Execute(ctx)))
 }
