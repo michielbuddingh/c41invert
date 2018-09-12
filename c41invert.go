@@ -27,8 +27,7 @@ func load(filename string) (image.Image, error) {
 	return p, nil
 }
 
-
-func samplePalette(picture image.Image, sampleArea image.Rectangle) (* Palette) {
+func samplePalette(picture image.Image, sampleArea image.Rectangle) *Palette {
 	var palette Palette
 	for x := sampleArea.Min.X; x < sampleArea.Max.X; x++ {
 		for y := sampleArea.Min.Y; y < sampleArea.Max.Y; y++ {
@@ -39,11 +38,11 @@ func samplePalette(picture image.Image, sampleArea image.Rectangle) (* Palette) 
 }
 
 type convertCmd struct {
-	infile string
-	outfile string
-	sampleFraction float64
+	infile                string
+	outfile               string
+	sampleFraction        float64
 	lowlights, highlights float64
-	linear bool
+	linear                bool
 }
 
 func (*convertCmd) Name() string {
@@ -82,7 +81,7 @@ func (c *convertCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{
 	if c.outfile == "" {
 		log.Fatal("Must specify output file")
 	}
-	
+
 	picture, load_err := load(c.infile)
 
 	if load_err != nil {
@@ -95,9 +94,9 @@ func (c *convertCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{
 	palette := samplePalette(picture, sampleArea)
 
 	t := Transformation{
-		Range{Low : palette.Red.Percentile(c.lowlights), High: palette.Red.Percentile(c.highlights)},
-		Range{Low : palette.Green.Percentile(c.lowlights), High: palette.Green.Percentile(c.highlights)},
-		Range{Low : palette.Blue.Percentile(c.lowlights), High: palette.Blue.Percentile(c.highlights)},
+		Range{Low: palette.Red.Percentile(c.lowlights), High: palette.Red.Percentile(c.highlights)},
+		Range{Low: palette.Green.Percentile(c.lowlights), High: palette.Green.Percentile(c.highlights)},
+		Range{Low: palette.Blue.Percentile(c.lowlights), High: palette.Blue.Percentile(c.highlights)},
 		c.lowlights - c.highlights,
 	}
 
@@ -105,7 +104,7 @@ func (c *convertCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{
 	if c.linear {
 		mapping = t.Linear()
 	}
-	
+
 	copy := mapping.Apply(picture)
 
 	of, ferr := os.Create(c.outfile)
@@ -113,8 +112,8 @@ func (c *convertCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{
 		log.Fatal(ferr)
 	}
 	defer of.Close()
-	jpeg.Encode(of, copy, &jpeg.Options{Quality:95})
-		
+	jpeg.Encode(of, copy, &jpeg.Options{Quality: 95})
+
 	return subcommands.ExitSuccess
 }
 
@@ -126,13 +125,13 @@ func sampleBounds(fraction float64, picture image.Image) image.Rectangle {
 	height := bounds.Max.Y - bounds.Min.Y
 
 	border := (1 - fraction) / 2
-	
+
 	sampleArea := image.Rectangle{
-		image.Point{bounds.Min.X + int(float64(width) * border),
-			bounds.Min.Y + int(float64(height) * border)},
-		image.Point{bounds.Max.X - int(float64(width) * border),
-			bounds.Max.Y - int(float64(height) * border)}}
-	
+		image.Point{bounds.Min.X + int(float64(width)*border),
+			bounds.Min.Y + int(float64(height)*border)},
+		image.Point{bounds.Max.X - int(float64(width)*border),
+			bounds.Max.Y - int(float64(height)*border)}}
+
 	return sampleArea
 }
 

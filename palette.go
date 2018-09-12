@@ -1,15 +1,15 @@
 package main
 
 import (
-	"math"
 	"image"
 	"image/color"
+	"math"
 )
 
 // Channel stores a histogram of all values present in
 // and image for a specific colour channel
 type Channel struct {
-	Shades   [65536]uint32
+	Shades          [65536]uint32
 	Min, Max, Total uint32
 }
 
@@ -87,15 +87,15 @@ type Range struct {
 
 type Transformation struct {
 	Red, Green, Blue Range
-	Contrast float64
+	Contrast         float64
 }
 
-type Mapping func (color.RGBA64) (out color.RGBA64)
+type Mapping func(color.RGBA64) (out color.RGBA64)
 
 func (m Mapping) Apply(input image.Image) image.Image {
 	bounds := input.Bounds()
 	copy := image.NewRGBA64(bounds)
-	
+
 	for x := bounds.Min.X; x < bounds.Max.X; x++ {
 		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 			in := color.RGBA64Model.Convert(input.At(x, y))
@@ -116,7 +116,7 @@ func (t Transformation) Sigmoid() Mapping {
 	gdiff := float64(gmax - gmin)
 	bdiff := float64(bmax - bmin)
 
-	return func (in color.RGBA64) (out color.RGBA64) {
+	return func(in color.RGBA64) (out color.RGBA64) {
 		valr := (float64(in.R) - rmin) - (rdiff / 2)
 		valg := (float64(in.G) - gmin) - (gdiff / 2)
 		valb := (float64(in.B) - bmin) - (bdiff / 2)
@@ -124,7 +124,7 @@ func (t Transformation) Sigmoid() Mapping {
 		valr *= (math.Pi / (rdiff / t.Contrast))
 		valg *= (math.Pi / (gdiff / t.Contrast))
 		valb *= (math.Pi / (bdiff / t.Contrast))
-		
+
 		out.R = uint16((math.Erf(valr) + 1) * 32767)
 		out.G = uint16((math.Erf(valg) + 1) * 32767)
 		out.B = uint16((math.Erf(valb) + 1) * 32767)
@@ -152,8 +152,8 @@ func (t Transformation) Linear() Mapping {
 		}
 		return 1 - v
 	}
-	
-	return func (in color.RGBA64) (out color.RGBA64) {
+
+	return func(in color.RGBA64) (out color.RGBA64) {
 		// normalize to 0..1
 		valr := unit((float64(in.R) - rmin) / rdiff)
 		valg := unit((float64(in.G) - gmin) / gdiff)
