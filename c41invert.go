@@ -7,6 +7,8 @@ import "flag"
 import "image"
 import _ "image/png"
 import "image/jpeg"
+import _ "golang.org/x/image/tiff"
+import _ "golang.org/x/image/webp"
 import "image/color"
 import "github.com/google/subcommands"
 
@@ -63,10 +65,10 @@ func (c *convertCmd) SetFlags(f *flag.FlagSet) {
 		"sample_fraction", 0.8,
 		"Sample palette from a fraction crop of the center, 0 < fraction < 1 (default 0.8)")
 	f.Float64Var(&c.lowlights,
-		"lowlights", 0.1,
+		"lowlights", 0.01,
 		"Shadows start here, lower values save more shadows")
 	f.Float64Var(&c.highlights,
-		"highlights", 0.9,
+		"highlights", 0.99,
 		"Highlights start here, lower values saves more highlights")
 	f.BoolVar(&c.linear,
 		"linear", false,

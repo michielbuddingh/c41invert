@@ -125,9 +125,9 @@ func (t Transformation) Sigmoid() Mapping {
 		valg *= (math.Pi / (gdiff / t.Contrast))
 		valb *= (math.Pi / (bdiff / t.Contrast))
 		
-		out.R = uint16((math.Erf(valr) + 1) * 32768)
-		out.G = uint16((math.Erf(valg) + 1) * 32768)
-		out.B = uint16((math.Erf(valb) + 1) * 32768)
+		out.R = uint16((math.Erf(valr) + 1) * 32767)
+		out.G = uint16((math.Erf(valg) + 1) * 32767)
+		out.B = uint16((math.Erf(valb) + 1) * 32767)
 
 		out.A = in.A
 		return out
