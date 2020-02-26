@@ -42,7 +42,7 @@ type convertCmd struct {
 	outfile               string
 	sampleFraction        float64
 	lowlights, highlights float64
-	linear                bool
+	scurve                bool
 }
 
 func (*convertCmd) Name() string {
@@ -69,9 +69,9 @@ func (c *convertCmd) SetFlags(f *flag.FlagSet) {
 	f.Float64Var(&c.highlights,
 		"highlights", 0.99,
 		"Highlights start here, lower values saves more highlights")
-	f.BoolVar(&c.linear,
-		"linear", false,
-		"Use linear mapping instead of sigmoid function")
+	f.BoolVar(&c.scurve,
+		"s-curve", false,
+		"Use sigmoid funciton instead of linear mapping")
 }
 
 func (c *convertCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
@@ -100,9 +100,9 @@ func (c *convertCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{
 		c.lowlights - c.highlights,
 	}
 
-	mapping := t.Sigmoid()
-	if c.linear {
-		mapping = t.Linear()
+	mapping := t.Linear()
+	if c.scurve {
+		mapping = t.Sigmoid()
 	}
 
 	copy := mapping.Apply(picture)
